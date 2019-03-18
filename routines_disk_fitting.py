@@ -1,6 +1,9 @@
+#####################################################################
+######################## STANDARD MODULES ###########################
+#####################################################################
+
 import matplotlib.pyplot as plt
 import numpy as np
-import time
 
 
 #####################################################################
@@ -56,7 +59,6 @@ def shear_ellipse_point(te, dx, dy, f, theta):
     xp = g[:,None] * x - s * yp
     return xp, yp
 
-
 def theta_max_min(te, dx, dy, f):
     '''
     Determines the parametric angle of the location of either the
@@ -103,9 +105,10 @@ def theta_max_min(te, dx, dy, f):
 
     The two are separated by pi/2 radians.
     '''
-    # determine extra variables
-    s = -dx[None,:]/dy[:,None]
+    # determining the radii and shear factors
     R = np.hypot(te / 2., dy)
+    s = -dx[None,:]/dy[:,None]
+    # determining squeeze factor g
     g = (te * f)/(2 * np.sqrt(R**2 * f**2 - dy**2))
     # to prevent numerical errors
     if f == 1:
@@ -154,7 +157,6 @@ def find_ellipse_parameters(te, dx, dy, f):
         investigated. i.e. with their centres at (dx,dy). 
         Inclination is based on the ratio of semi-minor to semi-major
         axis. [deg]
-
     '''
     # determining the radii and shear factors
     R = np.hypot(te/2., dy)
@@ -210,11 +212,12 @@ def find_ellipse_slopes(te, dx, dy, f):
         Array containing all the slopes of the tangents of the right
         hand side. i.e. at (te/2,-dy). Note that the slopes are
     '''
-    # determining the shear factors
-    s = -dx[None,:]/dy[:,None]
-    # stretch factor (f) is given, squeeze factor (g) hasn't
+    # determining radii and shear factors
     R = np.hypot(te/2., dy)
+    s = -dx[None,:]/dy[:,None]
+    # determining the squeeze factor g
     g = (te * f) / (2 * np.sqrt(R**2 * f**2 - dy**2))
+    # to prevent numerical errors
     if f == 1:
         g = np.ones(len(R))
     # determining coordinates on circle
