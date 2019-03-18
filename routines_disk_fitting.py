@@ -1,3 +1,39 @@
+"""
+This module contains all the routines and sub-routines necessary to
+investigate a large parameter space of possible disk solutions for
+a given light curve.
+
+Input Parameters for the Phase Space Search are:
+    te : duration of the eclipse
+    dx : x-position of the centre of the disk
+    dy : y-position of the centre of the disk
+    f  : stretch factor of the disk
+
+Limit Parameters
+    slopes : of the ingress and egress
+    R_hill : limits f per (dx,dy)
+
+Output Parameters
+    radii
+    tilt
+    inclination
+    slope_ingress
+    slope_egress
+
+---------------------------------------------------------------------
+Missing
+
+Routine
+    - convert tilt, inclination, and radius to a (te, dx, dy, f) point
+
+Functionality 
+    - find the max values of f for every (dx,dy)
+    - find the range of tilt, inclination and gradient values
+
+Plots
+    - 3D surface plot?
+
+"""
 #####################################################################
 ######################## STANDARD MODULES ###########################
 #####################################################################
@@ -589,20 +625,3 @@ def plot_property(disk_prop, prop_name, te, xmax, ymax, f, lvls="n", vmin=0, vma
     plt.colorbar()
     fig.savefig(root+'te_%.3f_f_%.3f_%s.png'%(te, f, save))
     return None
-        
-
-"""
-if __name__=="__main__":
-    te = 0.5
-    dy = np.linspace(0,2,501)
-    dy[0] = 1e-3
-    dx = np.linspace(0,2,501)
-    f = 1
-    # prove that find_ellipse_slopes works
-    sl,sr
-"""
-
-'''
-INVESTIGATE ELLIPSE DOESN"T YET EXPLORE F-SPACE
-'''
-
