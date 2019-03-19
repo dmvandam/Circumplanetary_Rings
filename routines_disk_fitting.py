@@ -82,11 +82,11 @@ def shear_ellipse_point(R, f, g, s, theta):
         the y-coordinate of the input point in the transformed circle.
     '''
     # x, y circle
-    x = R[:,None] * np.cos(theta)
-    y = R[:,None] * np.sin(theta)
+    x = R * np.cos(theta)
+    y = R * np.sin(theta)
     # xp, yp of stretched (f), squeezed (g), and sheared (s) circle
     yp = f * y
-    xp = g[:,None] * x - s * yp
+    xp = g * x - s * yp
     return xp, yp
 
 def theta_max_min(f, g, s):
@@ -135,8 +135,8 @@ def theta_max_min(f, g, s):
     The two are separated by pi/2 radians.
     '''
     # numerator and denominator theta_max_min = tan(2*theta) = num / den
-    theta_num = 2 * f * g[:,None] * s
-    theta_den = (s**2 + 1) * f**2 - g[:,None]**2
+    theta_num = 2 * f * g * s
+    theta_den = (s**2 + 1) * f**2 - g**2
     # theta_max_min
     theta_max_min = 0.5 * np.arctan2(theta_num, theta_den)
     return theta_max_min
@@ -246,12 +246,12 @@ def find_ellipse_slopes(te, dx, dy, f, g, s):
     # Rp**2 = xp**2 + yp**2 = (g*x - s*f*y)**2 + (f*y)**2
     # dy/dx = (s*f*g*y - g^2*x) / ((s**2 + 1)f**2*y - s*f*g*x)
     # left side
-    dy1 = -s * f**2 * y[:,None] - f**2 * x1[None,:]
-    dx1 = (s**2 * f**2 + g[:,None]**2) * y[:,None] + s * f**2 * x1[None,:]
+    dy1 = -s * f**2 * y - f**2 * x1
+    dx1 = (s**2 * f**2 + g**2) * y + s * f**2 * x1
     slope1 = dy1/dx1
     # right side
-    dy2 = -s * f**2 * y[:,None] - f**2 * x2[None,:]
-    dx2 = (s**2 * f**2 + g[:,None]**2) * y[:,None] + s * f**2 * x2[None,:]
+    dy2 = -s * f**2 * y - f**2 * x2
+    dx2 = (s**2 * f**2 + g**2) * y + s * f**2 * x2
     slope2 = dy2/dx2
     return slope1, slope2
 
@@ -485,9 +485,12 @@ def investigate_ellipses(te, xmax, ymax, f, nx=50, ny=50, ymin=1e-8, xmin=1e-8):
     dy = np.linspace(0, ymax, ny)
     dy[0] = ymin
     dx = np.linspace(0, xmax, nx)
+    # reshape
+    dy = dy[:,None]
+    dx = dx[None,:]
     # important details
     R = np.hypot(te/2.,dy)
-    s = -dx[None,:] / dy[:,None]
+    s = -dx / dy
     # squeeze factor g related to stretch factor f
     g = (te * f) / (2 * np.sqrt(R**2 * f**2 - dy**2))
     # to prevent numerical errors
