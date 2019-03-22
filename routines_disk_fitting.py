@@ -58,18 +58,18 @@ def shear_ellipse_point(R, f, g, s, theta):
 
     Parameters
     ----------
-    R : array_like (1-D)
+    R : array_like (2-D [:,None])
         array containing all the radii for a face-on disk with
         impact parameter dy { R = np.hypot(te/2.,dy) }
-    f : float
+    f : float, array_like (2-D)
         the y stretch factor of the smallest disk.
-    g : array_like (1-D)
+    g : float, array_like (2-D)
         array containing all the squeeze factors necessary to
         compensate for the stretch factor f 
         { g = te * f / (2 * np.sqrt(R**2 * f**2 - dy**2)) }
     s : array-like (2-D)
         array containing all the shear factors for the different
-        ellipses investigated { s = -dx[None,:] / dy[:,None] }
+        ellipses investigated { s = -dx / dy }
     theta : float [rad]
         the angle of the point on the circle that will be transformed
         to the stretched, squeezed and sheared circle.
@@ -110,15 +110,15 @@ def theta_max_min(f, g, s):
 
     Parameters
     ----------
-    f : float
+    f : float, array_like (2-D)
         the y stretch factor of the smallest disk.
-    g : array_like (1-D)
+    g : float, array_like (2-D)
         array containing all the squeeze factors necessary to
         compensate for the stretch factor f 
         { g = te * f / (2 * np.sqrt(R**2 * f**2 - dy**2)) }
     s : array-like (2-D)
         array containing all the shear factors for the different
-        ellipses investigated { s = -dx[None,:] / dy[:,None] }
+        ellipses investigated { s = -dx / dy }
 
     Returns
     -------
@@ -150,18 +150,18 @@ def find_ellipse_parameters(R, f, g, s):
 
     Parameters
     ----------
-    R : array_like (1-D)
+    R : array_like (2-D [:,None])
         array containing all the radii for a face-on disk with
         impact parameter dy { R = np.hypot(te/2.,dy) }
-    f : float
+    f : float, array_like (2-D)
         the y stretch factor of the smallest disk.
-    g : array_like (1-D)
+    g : float, array_like (2-D)
         array containing all the squeeze factors necessary to
         compensate for the stretch factor f 
         { g = te * f / (2 * np.sqrt(R**2 * f**2 - dy**2)) }
     s : array-like (2-D)
         array containing all the shear factors for the different
-        ellipses investigated { s = -dx[None,:] / dy[:,None] }
+        ellipses investigated { s = -dx / dy }
 
     Returns
     -------
@@ -195,7 +195,7 @@ def find_ellipse_parameters(R, f, g, s):
     inclination = np.arccos(b/a)
     # determine the tilt
     tilt = np.arctan2(y1,x1) # assuming R1 > R2
-    tilt_mask = R2 > R1 # find where above is not true
+    tilt_mask = R2 > R1 # sfind where above is not true
     tilt = tilt + tilt_mask*np.pi/2 # at above locations add np.pi/2
     return a, b, np.rad2deg(tilt), np.rad2deg(inclination)
 
@@ -214,29 +214,29 @@ def find_ellipse_slopes(te, dx, dy, f, g, s):
     ----------
     te : float
         duration of the eclipse.
-    dx : array_like (1-D)
+    dx : array_like (2-D [None,:])
         array containing all the x-shifts of the disk centre
-    dy : array_like (1-D)
+    dy : array_like (2-D [:,None])
         array containing all the impact parameters of the disks
         investigated.
-    f : float
+    f : float, array_like (2-D)
         the y stretch factor of the smallest disk.
-    g : array_like (1-D)
+    g : float, array_like (2-D)
         array containing all the squeeze factors necessary to
         compensate for the stretch factor f 
         { g = te * f / (2 * np.sqrt(R**2 * f**2 - dy**2)) }
     s : array-like (2-D)
         array containing all the shear factors for the different
-        ellipses investigated { s = -dx[None,:] / dy[:,None] }
+        ellipses investigated { s = -dx / dy }
     
     Returns
     -------
     slope1 : array_like (2-D)
         Array containing all the slopes of the tangents of the left
-        hand side. i.e. at (-te/2,-dy).
+        hand side. i.e. at (-te/2, -dy).
     slope2 : array_like (2-D)
         Array containing all the slopes of the tangents of the right
-        hand side. i.e. at (te/2,-dy). Note that the slopes are
+        hand side. i.e. at ( te/2, -dy).
     '''
     # determining coordinates on circle
     y = -dy
@@ -255,7 +255,49 @@ def find_ellipse_slopes(te, dx, dy, f, g, s):
     slope2 = dy2/dx2
     return slope1, slope2
 
+#####################################################################
+##################### NUMERICAL SUB ROUTINES ########################
+#####################################################################
 
+def find_stretch(te, dx, dy, s, R, Rhill, Rhill_tol=1e-6):
+    '''
+    This function finds the stretch factor for each of the (dx,dy)
+    locations that would cause the radius to be Rhill ± Rtol. This
+    function is numerical so not ideal in its current form a search
+	for an analytical solution is underway
+
+	Parameters
+	----------
+	te : float
+        duration of the eclipse.
+    dx : array_like (2-D [None,:])
+        array containing all the x-shifts of the disk centre
+    dy : array_like (2-D [:,None])
+        array containing all the impact parameters of the disks
+        investigated.
+    s : array-like (2-D)
+        array containing all the shear factors for the different
+        ellipses investigated { s = -dx / dy }
+	R : array_like (2-D [:,None])
+        array containing all the radii for a face-on disk with
+        impact parameter dy { R = np.hypot(te/2.,dy) }
+	Rhill : float
+		the hill radius of the system being investigated, i.e. the
+		largest acceptable disk radius to investigate
+	Rhill_tol : float
+		given the numerical nature of this function a tolerance on
+		Rhill should be provided, default is 1e-6 days
+	
+	Returns
+	-------
+	f : array_like (2-D)
+		array of the stretch factor necessary to give a point (dx,dy)
+		a radius of Rhill. Note that f >= 1, so all points for the
+		minimum radius ellipse that have a radius > Rhill are excluded
+		and given values of 0
+	'''
+	return None
+	'''
 #####################################################################
 ################# QUADRANT EXPANSION SUB ROUTINES ###################
 #####################################################################
@@ -559,7 +601,7 @@ def mask(mask_array, lower_limit, upper_limit, arrays):
 ######################### PLOTTING ROUTINE ##########################
 #####################################################################
 
-def plot_property(disk_prop, prop_name, te, xmax, ymax, f, lvls="n", vmin=0, vmax=1e8, root=''):
+def plot_property(disk_prop, prop_name, te, xmax, ymax, f0, lvls="n", vmin=0, vmax=1e8, root=''):
     '''
     Plots a geometrical property of the investigated ring systems.
 
@@ -578,11 +620,10 @@ def plot_property(disk_prop, prop_name, te, xmax, ymax, f, lvls="n", vmin=0, vma
     ymax : float
         maximum offset in the y direction of the centre of the
         ellipse in days.
-    f : float
+    f0 : float
         the y stretch factor of the smallest disk.
     lvls : str, float, array_like (1-D) [default = "n"]
-        either nothing specified (str), number of levels (float)
-        or the specific levels (array_like [1-D]).
+		either nothing specified (str), number of levels (float)
     vmin : float [default = 0]
         minimum value in the colourmap.
     vmax : float [default = 1e8]
@@ -594,7 +635,7 @@ def plot_property(disk_prop, prop_name, te, xmax, ymax, f, lvls="n", vmin=0, vma
     Returns
     -------
     fig : root + "te_%.3f_f_%.3f_%s.png" % (te, f, prop_name)
-    '''
+    ''' : root + "te_%.3f_f_%.3f_%s : root + "te_%.3f_f_%.3f_%s.png" % (te, f0, prop_name)
     ext = (-xmax,xmax,-ymax,ymax)
     title = prop_name.capitalize()
     save  = prop_name.lower()
@@ -615,5 +656,5 @@ def plot_property(disk_prop, prop_name, te, xmax, ymax, f, lvls="n", vmin=0, vma
     # plot data
     plt.imshow(disk_prop, cmap='viridis', vmin=vmin, vmax=vmax, origin='lower left', extent=ext)
     plt.colorbar()
-    fig.savefig(root+'te_%.3f_f_%.3f_%s.png'%(te, f, save))
+    fig.savefig(root+'te_%.3f_f_%.3f_%s.png'%(te, f0, save))
     return None
