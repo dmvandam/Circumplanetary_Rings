@@ -7,7 +7,6 @@ Input Parameters for the Phase Space Search are:
     te : duration of the eclipse
     dx : x-position of the centre of the disk
     dy : y-position of the centre of the disk
-    f  : stretch factor of the disk
 
 Limit Parameters
     slopes : of the ingress and egress
@@ -20,6 +19,9 @@ Output Parameters
     slope_ingress
     slope_egress
 
+Note this function can also find the max values of f for each point
+numerically, and determine how disk parameters vary with f.
+
 ---------------------------------------------------------------------
 Missing
 
@@ -27,8 +29,7 @@ Routine
     - convert tilt, inclination, and radius to a (te, dx, dy, f) point
 
 Functionality 
-    - find the max values of f for every (dx,dy)
-    - find the range of tilt, inclination and gradient values
+    - find the min values of f for every (dx,dy)
 
 Plots
     - 3D surface plot?
@@ -331,7 +332,7 @@ def find_stretch(te, dx, dy, s, R, Rhill, Rhill_tol=1e-6):
         print('Trial %02i - # of grid points remaining %i'%(counter,cond))
     return f
 
-def tbd(te, dx, dy, s, R, f, nf=20):
+def parameters_vs_stretch(te, dx, dy, s, R, f, nf=20):
     '''
     This function determines how the various disk parameters vary with f.
     It creates 3-D data cubes for a, b, tilt, inclination, left and right
@@ -384,13 +385,16 @@ def tbd(te, dx, dy, s, R, f, nf=20):
     f_step = (f - f0) / (nf - 1)
     A, B, T, I, GL, GR, F = np.zeros((7,)+f0.shape+(nf,))
     for x in range(nf):
-        f = f0 + x * f_step
-        g = te * f / (2 * np.sqrt(R**2 * f**2 - dy**2))
-        A[:,:,x], B[:,:,x], T[:,:,x], I[:,:,x] = find_ellipse_parameters(R, f, g, s)
-        sl, sr = find_ellipse_slopes(te, dx, dy, f, g, s)
+        fn = f0 + x * f_step
+        if x == 0:
+            g = 1
+        else:
+            g = te * fn / (2 * np.sqrt(R**2 * fn**2 - dy**2))
+        A[:,:,x], B[:,:,x], T[:,:,x], I[:,:,x] = find_ellipse_parameters(R, fn, g, s)
+        sl, sr = find_ellipse_slopes(te, dx, dy, fn, g, s)
         GL[:,:,x] = np.abs(np.sin(np.arctan2(sl,1)))
         GR[:,:,x] = np.abs(np.sin(np.arctan2(sr,1)))
-        F[:,:,x] = f
+        F[:,:,x] = fn
     return A, B, T, I, GL, GR, F
     
 
