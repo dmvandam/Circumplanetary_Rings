@@ -264,11 +264,11 @@ def find_stretch(te, dx, dy, s, R, Rhill, Rhill_tol=1e-6):
     This function finds the stretch factor for each of the (dx,dy)
     locations that would cause the radius to be Rhill ± Rtol. This
     function is numerical so not ideal in its current form a search
-	for an analytical solution is underway
+    for an analytical solution is underway
 
-	Parameters
-	----------
-	te : float
+    Parameters
+    ----------
+    te : float
         duration of the eclipse.
     dx : array_like (2-D [None,:])
         array containing all the x-shifts of the disk centre
@@ -278,26 +278,123 @@ def find_stretch(te, dx, dy, s, R, Rhill, Rhill_tol=1e-6):
     s : array-like (2-D)
         array containing all the shear factors for the different
         ellipses investigated { s = -dx / dy }
-	R : array_like (2-D [:,None])
+    R : array_like (2-D [:,None])
         array containing all the radii for a face-on disk with
         impact parameter dy { R = np.hypot(te/2.,dy) }
-	Rhill : float
-		the hill radius of the system being investigated, i.e. the
-		largest acceptable disk radius to investigate
-	Rhill_tol : float
-		given the numerical nature of this function a tolerance on
-		Rhill should be provided, default is 1e-6 days
-	
-	Returns
-	-------
-	f : array_like (2-D)
-		array of the stretch factor necessary to give a point (dx,dy)
-		a radius of Rhill. Note that f >= 1, so all points for the
-		minimum radius ellipse that have a radius > Rhill are excluded
-		and given values of 0
-	'''
-	return None
-	'''
+    Rhill : float
+        the hill radius of the system being investigated, i.e. the
+        largest acceptable disk radius to investigate
+    Rhill_tol : float
+        given the numerical nature of this function a tolerance on
+        Rhill should be provided, default is 1e-6 days
+    
+    Returns
+    -------
+    f : array_like (2-D)
+    array of the stretch factor necessary to give a point (dx,dy)
+    a radius of Rhill. Note that f >= 1, so all points for the
+    minimum radius ellipse that have a radius > Rhill are excluded
+    and given values of 0
+    '''
+    # set up minimum radius boundary
+    f = 1
+    g = 1
+    a, _, _, _ = find_ellipse_parameters(R, f, g, s)
+    # while loop - step size
+    f_max = 2 * Rhill / te
+    f_step = (f_max - f) / 2.
+    # while loop - bisection jump forward, backward or done
+    steps = np.zeros_like(s)
+    steps[a<Rhill] = 1
+    # while loop - filter out grid points that are done
+    use = (steps!=0)
+    # while loop
+    cond = np.sum(np.abs(steps))
+    counter = 0
+    while cond != 0:
+        # set up f and g
+        f += f_step * steps
+        g = te * f / (2 * np.sqrt(R**2 * f**2 - dy**2))
+        # determine a
+        a, _, _, _ = find_ellipse_parameters(R, f, g, s)
+        # update steps
+        steps[a>Rhill] = -1 # f too large
+        steps[a<Rhill] =  1 # f too small
+        steps[(a>=Rhill-Rhill_tol)*(a<=Rhill+Rhill_tol)] = 0 # a = Rhill±Rhill_tol
+        steps *= use # ignore values where f already found
+        # update use
+        use = (steps!=0)
+        # while loop
+        cond = np.sum(np.abs(steps))
+        counter += 1
+        f_step /= 2.
+        print('Trial %02i - # of grid points remaining %i'%(counter,cond))
+    return f
+
+def tbd(te, dx, dy, s, R, f, nf=20):
+    '''
+    This function determines how the various disk parameters vary with f.
+    It creates 3-D data cubes for a, b, tilt, inclination, left and right
+    gradients. Along the first 2 dimensions are the (dx,dy) grid positions
+    along the third dimension are the same parameters with a different f
+    value.
+    
+    Parameters
+    ----------
+    te : float
+        duration of the eclipse.
+    dx : array_like (2-D [None,:])
+        array containing all the x-shifts of the disk centre
+    dy : array_like (2-D [:,None])
+        array containing all the impact parameters of the disks
+        investigated.
+    s : array-like (2-D)
+        array containing all the shear factors for the different
+        ellipses investigated { s = -dx / dy }
+    R : array_like (2-D [:,None])
+        array containing all the radii for a face-on disk with
+        impact parameter dy { R = np.hypot(te/2.,dy) }
+    f : array_like (2-D)
+        the hill radius of the system being investigated, i.e. the
+        largest acceptable disk radius to investigate
+    nf : integer
+        number of points from f0 to f (max) to investigate the 
+        various ellipse parameters. default = 20
+
+    Returns
+    -------
+    A : array_like (3-D)
+        array containing the semi-major axes of the ellipses for
+        each value of f
+    B : array_like (3-D)
+        array containing the semi-minor axes of the ellipses for
+        each value of f
+    T : array_like (3-D)
+        array containing the tilt of the ellipses for each value 
+        of f
+    I : array_like (3-D)
+        array containing the inclination of the ellipses for each
+        value of f
+    F : array_like (3-D)
+        array containing the stretch factor f value at each step
+        along the cube
+    '''
+    # define intial and final conditions
+    f0 = np.ones_like(f)
+    f_step = (f - f0) / (nf - 1)
+    A, B, T, I, GL, GR, F = np.zeros((7,)+f0.shape+(nf,))
+    for x in range(nf):
+        f = f0 + x * f_step
+        g = te * f / (2 * np.sqrt(R**2 * f**2 - dy**2))
+        A[:,:,x], B[:,:,x], T[:,:,x], I[:,:,x] = find_ellipse_parameters(R, f, g, s)
+        sl, sr = find_ellipse_slopes(te, dx, dy, f, g, s)
+        GL[:,:,x] = np.abs(np.sin(np.arctan2(sl,1)))
+        GR[:,:,x] = np.abs(np.sin(np.arctan2(sr,1)))
+        F[:,:,x] = f
+    return A, B, T, I, GL, GR, F
+    
+
+
 #####################################################################
 ################# QUADRANT EXPANSION SUB ROUTINES ###################
 #####################################################################
@@ -623,7 +720,7 @@ def plot_property(disk_prop, prop_name, te, xmax, ymax, f0, lvls="n", vmin=0, vm
     f0 : float
         the y stretch factor of the smallest disk.
     lvls : str, float, array_like (1-D) [default = "n"]
-		either nothing specified (str), number of levels (float)
+        either nothing specified (str), number of levels (float)
     vmin : float [default = 0]
         minimum value in the colourmap.
     vmax : float [default = 1e8]
@@ -635,7 +732,7 @@ def plot_property(disk_prop, prop_name, te, xmax, ymax, f0, lvls="n", vmin=0, vm
     Returns
     -------
     fig : root + "te_%.3f_f_%.3f_%s.png" % (te, f, prop_name)
-    ''' : root + "te_%.3f_f_%.3f_%s : root + "te_%.3f_f_%.3f_%s.png" % (te, f0, prop_name)
+    '''
     ext = (-xmax,xmax,-ymax,ymax)
     title = prop_name.capitalize()
     save  = prop_name.lower()
