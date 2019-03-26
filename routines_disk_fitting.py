@@ -7,6 +7,7 @@ Input Parameters for the Phase Space Search are:
     te : duration of the eclipse
     dx : x-position of the centre of the disk
     dy : y-position of the centre of the disk
+    f  : the y stretch factor
 
 Limit Parameters
     slopes : of the ingress and egress
@@ -30,6 +31,7 @@ Routine
 
 Functionality 
     - find the min values of f for every (dx,dy)
+    - proper way to model / plot these limits
 
 Plots
     - 3D surface plot?
@@ -47,7 +49,7 @@ import numpy as np
 ######################## DISK SUB ROUTINES ##########################
 #####################################################################
 
-def shear_ellipse_point(R, f, g, s, theta):
+def shear_ellipse_point(R, f, g, s, h, theta):
     '''
     Transforms a point on an ellipse (stretched in y, squeezed
     in x) to a point on a sheared ellipse.
@@ -71,6 +73,10 @@ def shear_ellipse_point(R, f, g, s, theta):
     s : array-like (2-D)
         array containing all the shear factors for the different
         ellipses investigated { s = -dx / dy }
+    h : float, array_like (2-D)
+        array containing all the R growth factors neccesary to
+        compensate for a stretch factor f < 1
+        { h = np.hypot(te / 2., dy / f) / R } 
     theta : float [rad]
         the angle of the point on the circle that will be transformed
         to the stretched, squeezed and sheared circle.
@@ -85,9 +91,9 @@ def shear_ellipse_point(R, f, g, s, theta):
     # x, y circle
     x = R * np.cos(theta)
     y = R * np.sin(theta)
-    # xp, yp of stretched (f), squeezed (g), and sheared (s) circle
-    yp = f * y
-    xp = g * x - s * yp
+    # x, y after stretch (f), squeeze (g), grow (h) & shear (s)
+    yp = f * h * y
+    xp = g * h * x - s * yp
     return xp, yp
 
 def theta_max_min(f, g, s):
@@ -142,7 +148,7 @@ def theta_max_min(f, g, s):
     theta_max_min = 0.5 * np.arctan2(theta_num, theta_den)
     return theta_max_min
 
-def find_ellipse_parameters(R, f, g, s):
+def find_ellipse_parameters(R, f, g, h, s):
     '''
     Finds the semi-major axis, a, semi-minor axis, b, the tilt and 
     the inclination of the smallest ellipse stretched by, f, that 
@@ -160,6 +166,10 @@ def find_ellipse_parameters(R, f, g, s):
         array containing all the squeeze factors necessary to
         compensate for the stretch factor f 
         { g = te * f / (2 * np.sqrt(R**2 * f**2 - dy**2)) }
+    h : float, array_like (2-D)
+        array containing all the R growth factors neccesary to
+        compensate for a stretch factor f < 1
+        { h = np.hypot(te / 2., dy / f) / R } 
     s : array-like (2-D)
         array containing all the shear factors for the different
         ellipses investigated { s = -dx / dy }
@@ -185,8 +195,8 @@ def find_ellipse_parameters(R, f, g, s):
     # find position of (co-) vertices
     theta1 = theta_max_min(f, g, s)
     theta2 = theta1 + np.pi/2
-    x1, y1 = shear_ellipse_point(R, f, g, s, theta1)
-    x2, y2 = shear_ellipse_point(R, f, g, s, theta2)
+    x1, y1 = shear_ellipse_point(R, f, g, h, s, theta1)
+    x2, y2 = shear_ellipse_point(R, f, g, h, s, theta2)
     # find the semi-major and semi-minor axes
     R1 = np.hypot(x1,y1)
     R2 = np.hypot(x2,y2)
@@ -634,13 +644,17 @@ def investigate_ellipses(te, xmax, ymax, f, nx=50, ny=50, ymin=1e-8, xmin=1e-8):
     # important details
     R = np.hypot(te/2.,dy)
     s = -dx / dy
-    # squeeze factor g related to stretch factor f
-    g = (te * f) / (2 * np.sqrt(R**2 * f**2 - dy**2))
-    # to prevent numerical errors
-    if f == 1:
-        g = np.ones_like(R)
+    # defining the squeeze factor g and growth factor h (related to f)
+    if f < 1:
+        h = np.hypot(te/2., dy/f)/R
+        g = 1
+    elif f == 1:
+        h = 1
+        g = 1
+    elif f > 1:
+        g = (te * f) / (2 * np.sqrt(R**2 * f**2 - dy**2))
     # investigating phase space
-    a, b, tilt, inclination = find_ellipse_parameters(R, f, g, s)
+    a, b, tilt, inclination = find_ellipse_parameters(R, f, g, h, s)
     slope_left, slope_right = find_ellipse_slopes(te, dx, dy, f, g, s)
     # filling the quadrants
     radii = reflect_quadrants(a)
