@@ -298,11 +298,14 @@ def find_stretch(te, dx, dy, Rmin, s, Rhill, Rhill_tol=1e-6):
     
     Returns
     -------
-    f : array_like (2-D)
-    array of the stretch factor necessary to give a point (dx,dy)
-    a radius of Rhill. Note that f >= 1, so all points for the
-    minimum radius ellipse that have a radius > Rhill are excluded
-    and given values of 0
+    f_min : array_like (2-D)
+        array of the smallest stretch factor to give a point (dx,dy)
+        a radius of Rhill. Note that all points with f = 1 R > Rhill
+        are excluded.
+    f_max : array_like (2-D)
+        array of the largest stretch factor to give a point (dx,dy)
+        a radius of Rhill. Note that all points with f = 1 R > Rhill
+        are excluded.
     '''
     # set up the process for increasing and decreasing f
     f_max_step = [ 2 * Rhill / te, 0]
@@ -327,7 +330,9 @@ def find_stretch(te, dx, dy, Rmin, s, Rhill, Rhill_tol=1e-6):
             f += f_step * steps
             if k == 0:
                 g = te * f / (2 * np.sqrt(Rmin**2 * f**2 - dy**2))
+                h = 1
             elif k == 1:
+                g = 1
                 h = np.hypot(te/2., dy/f) / Rmin
             # determine a
             r, _, _ = find_ellipse_parameters(Rmin, f, g, h, s)
@@ -349,7 +354,7 @@ def find_stretch(te, dx, dy, Rmin, s, Rhill, Rhill_tol=1e-6):
             f_min = np.copy(f)
     return f_min, f_max
 
-def parameters_vs_stretch(te, dx, dy, Rmin, f, s, nf=20):
+def parameters_vs_stretch(te, dx, dy, Rmin, f_min, f_max, s, nf=20):
     '''
     This function determines how the various disk parameters vary with f.
     It creates 3-D data cubes for a, b, tilt, inclination, left and right
@@ -369,9 +374,12 @@ def parameters_vs_stretch(te, dx, dy, Rmin, f, s, nf=20):
     Rmin : array_like (2-D [:,None])
         array containing all the radii for a face-on disk with
         impact parameter dy { Rmin = np.hypot(te/2.,dy) }
-    f : array_like (2-D)
-        the hill radius of the system being investigated, i.e. the
-        largest acceptable disk radius to investigate
+    f_min : array_like (2-D)
+        array of the smallest stretch factor to give a point (dx,dy)
+        a radius of Rhill.
+    f_max : array_like (2-D)
+        array of the largest stretch factor to give a point (dx,dy)
+        a radius of Rhill. 
     s : array-like (2-D)
         array containing all the shear factors for the different
         ellipses investigated { s = -dx / dy }
@@ -394,19 +402,23 @@ def parameters_vs_stretch(te, dx, dy, Rmin, f, s, nf=20):
         array containing the stretch factor f value at each step
         along the cube
     '''
-    # define intial and final conditions
-    f0 = np.ones_like(f)
-    h = 1
-    f_step = (f - f0) / (nf - 1)
-    R, T, I, GL, GR, F = np.zeros((6,)+f0.shape+(nf,))
+    # define step sizeintial and final conditions
+    f_step = (f_max - f_min) / (nf - 1)
+    R, T, I, GL, GR, F = np.zeros((6,)+s.shape+(nf,))
     for x in range(nf):
-        fn = f0 + x * f_step
-        if x == 0:
-            g = 1
-        else:
-            g = te * fn / (2 * np.sqrt(Rmin**2 * fn**2 - dy**2))
-        R[:,:,x], T[:,:,x], I[:,:,x] = find_ellipse_parameters(Rmin, fn, g, h, s)
-        sl, sr = find_ellipse_slopes(te, dx, dy, fn, g, s)
+        # define f, g and h
+        fn = f_min + x * f_step
+        gn = te * fn / (2 * np.sqrt(Rmin**2 * fn**2 - dy**2))
+        hn = np.hypot(te/2., dy/fn) / Rmin
+        # define masks (h = 1 if f > 1, g = 1 if f < 1)
+        f_g  = fn <= 1 # define where g = 1
+        f_h  = fn >= 1 # define where h = 1
+        # apply masks
+        gn[f_g] = 1
+        hn[f_h] = 1
+        # determine data points
+        R[:,:,x], T[:,:,x], I[:,:,x] = find_ellipse_parameters(Rmin, fn, gn, hn, s)
+        sl, sr = find_ellipse_slopes(te, dx, dy, fn, gn, s)
         GL[:,:,x] = np.abs(np.sin(np.arctan2(sl,1)))
         GR[:,:,x] = np.abs(np.sin(np.arctan2(sr,1)))
         F[:,:,x] = fn
