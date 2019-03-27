@@ -704,7 +704,7 @@ def mask(mask_array, lower_limit, upper_limit, arrays):
 
 
 #####################################################################
-######################### PLOTTING ROUTINE ##########################
+######################## PLOTTING ROUTINES ##########################
 #####################################################################
 
 def plot_property(disk_prop, prop_name, te, xmax, ymax, f0, lvls="n", vmin=0, vmax=1e8, root=''):
@@ -736,7 +736,6 @@ def plot_property(disk_prop, prop_name, te, xmax, ymax, f0, lvls="n", vmin=0, vm
         maximum value in the colourmap.
     root : string [default = '']
         string containing the path where the figure will be saved.
-    title : string [default = '']
 
     Returns
     -------
@@ -763,4 +762,63 @@ def plot_property(disk_prop, prop_name, te, xmax, ymax, f0, lvls="n", vmin=0, vm
     plt.imshow(disk_prop, cmap='viridis', vmin=vmin, vmax=vmax, origin='lower left', extent=ext)
     plt.colorbar()
     fig.savefig(root+'te_%.3f_f_%.3f_%s.png'%(te, f0, save))
+    return None
+
+def plot_stretch_vs_property(DISK_PROP, prop_name, te, dx, dy, F, configs=10, root=''):
+    '''
+    Plots the effect of the stretch factor on a geometrical property of the investigated ring system.
+    
+    Parameters
+    ----------
+    DISK_PROP : array_like (3-D)
+        array containing a disk property for all the investigated
+        ellipses and how it varies with f from f_min to f_max
+        allowed by Rhill from function .
+    prop_name : string
+        string containing the name of the property
+    te : float
+        duration of the eclipse.
+    dx : array_like (2-D [None,:])
+        array containing all the x-shifts of the disk centre
+    dy : array_like (2-D [:,None])
+        array containing all the impact parameters of the disks
+        investigated.
+    F : array_like (3-D)
+        array containing the stretch factor f value at each step
+        along the cube of DISK_PROP
+    configs: integer or array_like (2-D)
+        configs is used to determine which configurations of the
+        phase space are investigated. If configs is an integer
+        that many random configurations will be plotted. If configs
+        is an array it should have a (2,n) shape, (0,n) = dx INDICES
+        and (1,n) = dy INDICES
+    root : string [default = '']
+        string containing the path where the figure will be saved. 
+    
+    Returns
+    -------
+    fig : root + "te_%.3f_nc_%i_%s_stretch.png" % (te, {configs or len(configs)}, prop_name)
+    '''
+    title = prop_name.capitalize()
+    save = prop_name.lower()
+    # determine what to plot
+    if isinstance(configs,np.int):
+        xi = np.random.randint(0,len(dx[0,:]),configs)
+        yi = np.random.randint(0,len(dy[:,0]),configs)
+    else:
+        xi = configs[0]
+        yi = configs[1]
+    nc = len(xi)
+    # create figure
+    fig = plt.figure(figsize=(11,9))
+    plt.xlabel('stretch factor, $f$')
+    plt.ylabel(save)
+    plt.title('Effect of $f$ on the %s of a Disk with $t_e$ of %.3f'%(title,te))
+    for l in range(len(xi)):
+        x = xi[l]
+        y = yi[l]
+        lbl = '($dx$,$dy$) = (%.3f,%.3f)'%(dx[0,x], dy[y,0])
+        plt.plot(F[y,x],DISK_PROP[x,y],marker = 'o',label=lbl) 
+    plt.legend(loc='best')
+    fig.savefig(root+'te_%.3f_nc_%i_%s_stretch.png'%(te, nc, save))
     return None
