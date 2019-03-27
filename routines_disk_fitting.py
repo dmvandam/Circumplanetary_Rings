@@ -304,41 +304,50 @@ def find_stretch(te, dx, dy, Rmin, s, Rhill, Rhill_tol=1e-6):
     minimum radius ellipse that have a radius > Rhill are excluded
     and given values of 0
     '''
-    # set up minimum radius boundary
-    f = 1
-    g = 1
-    h = 1
-    r, _, _ = find_ellipse_parameters(Rmin, f, g, h, s)
-    # while loop - step size
-    f_max = 2 * Rhill / te
-    f_step = (f_max - f) / 2.
-    # while loop - bisection jump forward, backward or done
-    steps = np.zeros_like(s)
-    steps[r<Rhill] = 1
-    # while loop - filter out grid points that are done
-    use = (steps!=0)
-    # while loop
-    cond = np.sum(np.abs(steps))
-    counter = 0
-    while cond != 0:
-        # set up f and g
-        f += f_step * steps
-        g = te * f / (2 * np.sqrt(Rmin**2 * f**2 - dy**2))
-        # determine a
+    # set up the process for increasing and decreasing f
+    f_max_step = [ 2 * Rhill / te, 0]
+    for k in range(2):
+        # set up minimum radius boundary
+        f = 1
+        g = 1
+        h = 1
         r, _, _ = find_ellipse_parameters(Rmin, f, g, h, s)
-        # update steps
-        steps[r>Rhill] = -1 # f too large
-        steps[r<Rhill] =  1 # f too small
-        steps[(r>=Rhill-Rhill_tol)*(r<=Rhill+Rhill_tol)] = 0 # r = Rhill±Rhill_tol
-        steps *= use # ignore values where f already found
-        # update use
+        # while loop - step size
+        f_step = (f_max_step[k] - f) / 2.
+        # while loop - bisection jump forward, backward or done
+        steps = np.zeros_like(s)
+        steps[r<Rhill] = 1
+        # while loop - filter out grid points that are done
         use = (steps!=0)
         # while loop
         cond = np.sum(np.abs(steps))
-        counter += 1
-        f_step /= 2.
-        print('Trial %02i - # of grid points remaining %i'%(counter,cond))
-    return f
+        counter = 0
+        while cond != 0:
+            # set up f and g and h
+            f += f_step * steps
+            if k == 0:
+                g = te * f / (2 * np.sqrt(Rmin**2 * f**2 - dy**2))
+            elif k == 1:
+                h = np.hypot(te/2., dy/f) / Rmin
+            # determine a
+            r, _, _ = find_ellipse_parameters(Rmin, f, g, h, s)
+            # update steps
+            steps[r>Rhill] = -1 # f too large
+            steps[r<Rhill] =  1 # f too small
+            steps[(r>=Rhill-Rhill_tol)*(r<=Rhill+Rhill_tol)] = 0 # r = Rhill±Rhill_tol
+            steps *= use # ignore values where f already found
+            # update use
+            use = (steps!=0)
+            # while loop
+            cond = np.sum(np.abs(steps))
+            counter += 1
+            f_step /= 2.
+            print('Trial %02i - # of grid points remaining %i'%(counter,cond))
+        if k == 0:
+            f_max = np.copy(f)
+        else:
+            f_min = np.copy(f)
+    return f_min, f_max
 
 def parameters_vs_stretch(te, dx, dy, Rmin, f, s, nf=20):
     '''
