@@ -70,13 +70,13 @@ def shear_ellipse_point(Rmin, f, g, h, s, theta):
         array containing all the squeeze factors necessary to
         compensate for the stretch factor f 
         { g = te * f / (2 * np.sqrt(Rmin**2 * f**2 - dy**2)) }
-    s : array-like (2-D)
-        array containing all the shear factors for the different
-        ellipses investigated { s = -dx / dy }
     h : float, array_like (2-D)
         array containing all the R growth factors neccesary to
         compensate for a stretch factor f < 1
         { h = np.hypot(te / 2., dy / f) / Rmin } 
+    s : array-like (2-D)
+        array containing all the shear factors for the different
+        ellipses investigated { s = -dx / dy }
     theta : float [rad]
         the angle of the point on the circle that will be transformed
         to the stretched, squeezed and sheared circle.
@@ -267,7 +267,7 @@ def find_ellipse_slopes(te, dx, dy, f, g, s):
 ##################### NUMERICAL SUB ROUTINES ########################
 #####################################################################
 
-def find_stretch(te, dx, dy, s, Rmin, Rhill, Rhill_tol=1e-6):
+def find_stretch(te, dx, dy, Rmin, s, Rhill, Rhill_tol=1e-6):
     '''
     This function finds the stretch factor for each of the (dx,dy)
     locations that would cause the radius to be Rhill ± Rtol. This
@@ -283,12 +283,12 @@ def find_stretch(te, dx, dy, s, Rmin, Rhill, Rhill_tol=1e-6):
     dy : array_like (2-D [:,None])
         array containing all the impact parameters of the disks
         investigated.
+    Rmin : array_like (2-D [:,None])
+        array containing all the radii for a face-on disk with
+        impact parameter dy { Rmin = np.hypot(te/2.,dy) }
     s : array-like (2-D)
         array containing all the shear factors for the different
         ellipses investigated { s = -dx / dy }
-    Rmin : array_like (2-D [:,None])
-        array containing all the radii for a face-on disk with
-        impact parameter dy { R = np.hypot(te/2.,dy) }
     Rhill : float
         the hill radius of the system being investigated, i.e. the
         largest acceptable disk radius to investigate
@@ -307,7 +307,8 @@ def find_stretch(te, dx, dy, s, Rmin, Rhill, Rhill_tol=1e-6):
     # set up minimum radius boundary
     f = 1
     g = 1
-    r, _, _, _ = find_ellipse_parameters(Rmin, f, g, s)
+    h = 1
+    r, _, _ = find_ellipse_parameters(Rmin, f, g, h, s)
     # while loop - step size
     f_max = 2 * Rhill / te
     f_step = (f_max - f) / 2.
@@ -324,7 +325,7 @@ def find_stretch(te, dx, dy, s, Rmin, Rhill, Rhill_tol=1e-6):
         f += f_step * steps
         g = te * f / (2 * np.sqrt(Rmin**2 * f**2 - dy**2))
         # determine a
-        r, _, _, _ = find_ellipse_parameters(Rmin, f, g, s)
+        r, _, _ = find_ellipse_parameters(Rmin, f, g, h, s)
         # update steps
         steps[r>Rhill] = -1 # f too large
         steps[r<Rhill] =  1 # f too small
@@ -339,7 +340,7 @@ def find_stretch(te, dx, dy, s, Rmin, Rhill, Rhill_tol=1e-6):
         print('Trial %02i - # of grid points remaining %i'%(counter,cond))
     return f
 
-def parameters_vs_stretch(te, dx, dy, s, Rmin, f, nf=20):
+def parameters_vs_stretch(te, dx, dy, Rmin, f, s, nf=20):
     '''
     This function determines how the various disk parameters vary with f.
     It creates 3-D data cubes for a, b, tilt, inclination, left and right
@@ -356,15 +357,15 @@ def parameters_vs_stretch(te, dx, dy, s, Rmin, f, nf=20):
     dy : array_like (2-D [:,None])
         array containing all the impact parameters of the disks
         investigated.
-    s : array-like (2-D)
-        array containing all the shear factors for the different
-        ellipses investigated { s = -dx / dy }
     Rmin : array_like (2-D [:,None])
         array containing all the radii for a face-on disk with
         impact parameter dy { Rmin = np.hypot(te/2.,dy) }
     f : array_like (2-D)
         the hill radius of the system being investigated, i.e. the
         largest acceptable disk radius to investigate
+    s : array-like (2-D)
+        array containing all the shear factors for the different
+        ellipses investigated { s = -dx / dy }
     nf : integer
         number of points from f0 to f (max) to investigate the 
         various ellipse parameters. default = 20
@@ -386,6 +387,7 @@ def parameters_vs_stretch(te, dx, dy, s, Rmin, f, nf=20):
     '''
     # define intial and final conditions
     f0 = np.ones_like(f)
+    h = 1
     f_step = (f - f0) / (nf - 1)
     R, T, I, GL, GR, F = np.zeros((6,)+f0.shape+(nf,))
     for x in range(nf):
@@ -394,7 +396,7 @@ def parameters_vs_stretch(te, dx, dy, s, Rmin, f, nf=20):
             g = 1
         else:
             g = te * fn / (2 * np.sqrt(Rmin**2 * fn**2 - dy**2))
-        R[:,:,x], B[:,:,x], T[:,:,x], I[:,:,x] = find_ellipse_parameters(Rmin, fn, g, s)
+        R[:,:,x], T[:,:,x], I[:,:,x] = find_ellipse_parameters(Rmin, fn, g, h, s)
         sl, sr = find_ellipse_slopes(te, dx, dy, fn, g, s)
         GL[:,:,x] = np.abs(np.sin(np.arctan2(sl,1)))
         GR[:,:,x] = np.abs(np.sin(np.arctan2(sr,1)))
@@ -606,11 +608,11 @@ def investigate_ellipses(te, xmax, ymax, f, nx=50, ny=50, ymin=1e-8):
         Array containing the inclination angles [deg] of the
         investigated ellipses. Inclination is the angle obtained
         from the ratio of the semi-minor to semi-major axis
-    slope_left : array_like (2-D)
+    grad_left : array_like (2-D)
         Array containing all the slopes of the left ellipse edge at
         the eclipse height. Note that this slope is defined as the
         absolute value of the sine of the arctangent of dy/dx.
-    slope_right
+    grad_right
         Array containing all the slopes of the right ellipse edge at
         the eclipse height. Note that this slope is defined as the
         absolute value of the sine of the arctangent of dy/dx.
