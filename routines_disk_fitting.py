@@ -30,7 +30,6 @@ Routine
     - convert tilt, inclination, and radius to a (te, dx, dy, f) point
 
 Functionality 
-    - find the min values of f for every (dx,dy)
     - proper way to model / plot these limits
 
 Plots
@@ -424,6 +423,78 @@ def parameters_vs_stretch(te, dx, dy, Rmin, f_min, f_max, s, nf=20):
         F[:,:,x] = fn
     return R, T, I, GL, GR, F
     
+def find_configuration(inc, tilt, Rhill, te, xmax, ymax, nx=50, ny=50, ymin=1e-8, inc_tol=0.1, tilt_tol=0.1, Rhill_tol=1e-6, nf=100):
+    '''
+    This function is used to solve for te, dx, dy, f to give a particular
+    inclination and tilt. This is very involved, and may not even be possible
+    so solutions are found numerically
+
+    Parameters
+    ----------
+    inc : float
+        the inclination angle of the disk
+    tilt : float
+        the tilt angle of the disk (ellipse w.r.t. x-axis)
+    Rhill : float
+        the hill radius of the system being investigated, i.e. the
+        largest acceptable disk radius to investigate
+    te : float
+        duration of the eclipse.
+    xmax : float
+        maximum offset in the x direction of the centre of the 
+        ellipse in days.
+    ymax : float
+        maximum offset in the y direction of the centre of the
+        ellipse in days.
+    nx : integer
+        number of steps to investigate in the x direction. i.e.
+        investigated space is np.linspace(-xmax, xmax, 2*nx).
+    ny : integer
+        number of steps to investigate in the y direction. i.e.
+        investigated space is np.linspace(-ymax, ymax, 2*ny).
+    ymin : float
+        this is necessary because the shear parameter s = -dx/dy
+        so dy != 0
+    inc_tol : float
+        the tolerance on the inclination angle found [default = 0.1].
+    tilt_tol : float
+        the tolerance on the tilt angle found [default = 0.1].
+    Rhill_tol : float
+        given the numerical nature of this function a tolerance on
+        Rhill should be provided, default is 1e-6 days
+    nf : integer
+        number of f points calculated between f_min and f_max to find
+        inclination and tilt
+
+    Returns
+    -------
+    te : float
+        duration of the eclipse.
+    dx : float
+        x - position of the centre of the ellipse
+    dy : float
+        y - position of the centre of the ellipse
+    f : float
+        stretch factor of the ellipse (from 0 to 2 * Rhill / te)
+    '''
+    # creating phase space
+    dy = np.linspace(0, ymax, ny)
+    dy[0] = ymin
+    dx = np.linspace(0, xmax, nx)
+    # reshape
+    dy = dy[:,None]
+    dx = dx[None,:]
+    # important details
+    Rmin = np.hypot(te/2., dy)
+    s = -dx / dy
+    # finding the stretch factor limits
+    f_min, f_max = find_stretch(te, dx, dy, Rmin, s, Rhill, Rhill_tol)
+    # finding the dependence on parameters with f
+    R, T, I, GL, GR = parameters_vs_stretch(te, dx, dy, Rmin, f_min, f_max, nf)
+    tilt_mask = (T >= tilt - tilt_tol) * (T <= tilt + tilt_tol)
+    inc_mask  = (I >= inc - inc_tol) * (I <= inc + inc_tol)
+    config_mask = tilt_mask * inc_mask
+    xi, yi, fi = np.argwhere(config_mask).T
 
 
 #####################################################################
@@ -618,7 +689,7 @@ def investigate_ellipses(te, xmax, ymax, f, nx=50, ny=50, ymin=1e-8):
 
     Returns
     -------
-    a : array_like (2-D)
+    radii : array_like (2-D)
         Array containing the semi-major axes of the investigated
         ellipses.
     tilt : array_like (2-D)
